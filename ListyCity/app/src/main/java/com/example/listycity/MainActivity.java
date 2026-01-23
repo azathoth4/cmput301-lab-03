@@ -2,38 +2,17 @@ package com.example.listycity;
 
 import android.os.Bundle;
 import android.view.View;
-import android.widget.AdapterView;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.ListView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.util.ArrayList;
 
-public class MainActivity extends AppCompatActivity {
-
-    ListView cityList;
-    CityArrayAdapter cityAdapter;
-    ArrayList<String> dataList;
-    int selectedPosition = 0;
-    boolean citySelected = false;
-    boolean confirmDelete = false;
-    boolean confirmAdd = false;
-
-
-
-    private AdapterView.OnItemClickListener clickHandler = (parent, v, position, id) -> {
-        selectedPosition = position;
-        citySelected = true;
-        findViewById(R.id.deleteCity).setEnabled(citySelected);
-    };
-
-    @Override
-    public void addCity(City city) {
-        cityAdapter.add(city);
-        cityAdapter.notifyDataSetChanged();
-    }
+public class MainActivity extends AppCompatActivity implements AddCityFragment.AddCityDialogListener {
+    private ListView cityList;
+    private CityArrayAdapter cityAdapter;
+    private ArrayList<City> cities;
+    private int selectedPosition = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,52 +20,73 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         cityList = findViewById(R.id.city_list);
-        String[] cities = {"Edmonton", "Calgary", "Toronto", "Vancouver", "Montreal", "Ottawa", "Winnipeg", "Quebec City", "Hamilton", "Halifax", "Beijing"};
-        String[] provinces = { "AB", "AB", "BC", "ON", "QC", "ON", "MB", "QC", "ON", "NS", "China"};
-        ArrayList<City> dataList = new ArrayList<>();
-        for (int i = 0; i < cities.length; i++) {
-            dataList.add(new City(cities[i], provinces[i]));
-        }
+        cities = new ArrayList<>();
+        seedCities();
 
-        cityAdapter = new CityArrayAdapter(this, dataList);
+        cityAdapter = new CityArrayAdapter(this, cities);
         cityList.setAdapter(cityAdapter);
+
+        cityList.setOnItemClickListener((parent, view, position, id) -> {
+            selectedPosition = position;
+            findViewById(R.id.deleteCity).setEnabled(true);
+        });
+
+
+        findViewById(R.id.deleteCity).setEnabled(false);
     }
 
-    // Add City Button Functionality
-    public void addCity(View view) {
-        EditText editText = findViewById(R.id.editTextCityName);
-        String message = editText.getText().toString();
-        Button button = findViewById(R.id.addCity);
+    private void seedCities() {
+        String[] names = {
+                "Edmonton", "Calgary", "Toronto", "Vancouver", "Montreal", "Ottawa", "Winnipeg", "Quebec City", "Hamilton", "Halifax", "Beijing"
+        };
+        String[] provinces = {
+                "AB", "AB", "ON", "BC", "QC", "ON", "MB", "QC", "ON", "NS", "China"
+        };
 
-        String message2 = message.replaceAll("\\s", ""); // prevents empty strings from being added
-        if (!confirmAdd) {
-            confirmAdd = true;
-            button.setText("Confirm Add");
+        for (int i = 0; i < names.length; i++) {
+            cities.add(new City(names[i], provinces[i]));
+        }
+    }
+
+    // Called from AddCityFragment
+    @Override
+    public void addCity(City city) {
+        cities.add(city);
+        cityAdapter.notifyDataSetChanged();
+        onDialogCancelled();
+    }
+
+    @Override
+    public void editCity(City city) {
+        cities.set(selectedPosition, city);
+        cityAdapter.notifyDataSetChanged();
+        onDialogCancelled();
+    }
+
+    @Override
+    public void onDialogCancelled() {
+        selectedPosition = -1;
+        findViewById(R.id.deleteCity).setEnabled(false);
+    }
+
+    public void openAddEditCityDialog(View view) {
+        if (selectedPosition >= 0) {
+            // EDIT mode
+            City cityToEdit = cities.get(selectedPosition);
+            AddCityFragment.newInstance(cityToEdit).show(getSupportFragmentManager(), "EDIT_CITY");
         } else {
-            confirmAdd = false;
-            button.setText("Add City");
-            if (!message2.isEmpty()) {
-                editText.getText().clear();
-                dataList.add(message);
-                cityAdapter.notifyDataSetChanged();
-            }
+            // ADD mode
+            new AddCityFragment().show(getSupportFragmentManager(), "ADD_CITY");
         }
     }
 
-    // Delete City Button Functionality
+
     public void deleteCity(View view) {
-        Button button = findViewById(R.id.deleteCity);
-        if (citySelected && confirmDelete) {
-            citySelected = false;
-            confirmDelete = false;
-            findViewById(R.id.deleteCity).setEnabled(citySelected);
-            dataList.remove(selectedPosition);
+        if (selectedPosition >= 0) {
+            cities.remove(selectedPosition);
+            selectedPosition = -1;
             cityAdapter.notifyDataSetChanged();
-            button.setText("Delete City");
-        }
-        if (citySelected && !confirmDelete) {
-            confirmDelete = true;
-            button.setText("Confirm Delete");
+            findViewById(R.id.deleteCity).setEnabled(false);
         }
     }
 }
